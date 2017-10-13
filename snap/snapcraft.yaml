@@ -1,0 +1,16 @@
+name: s3test
+version: 1.0
+summary: Test RadosGW S3 API 
+description: >
+   This package provides s3test
+confinement: classic
+grade: stable
+
+apps:
+  s3test:
+    command: s3test.py
+
+parts:
+  main:
+    plugin: dump
+    source: . 
