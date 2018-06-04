@@ -7,9 +7,12 @@
 #
 import os
 import time
+
+import argparse
 import boto
 import datetime
-import argparse
+import random
+import string
 
 from boto.s3 import (
     connection,
@@ -43,6 +46,7 @@ parser.add_argument('--port', type=int, default=80, required=False)
 parser.add_argument('--host', type=str, default='10.5.100.1', required=False)
 parser.add_argument('-n', '--num-objs', type=int, default=1, required=False)
 parser.add_argument('--bytes', type=int, default=1024 * 110, required=False)
+parser.add_argument('--objnamelen', type=int, default=0, required=False)
 args = parser.parse_args()
 
 print "S3 endpoint is '%s:%s'" % (args.host, args.port)
@@ -71,7 +75,13 @@ if args.num_objs:
     print "Uploading %d objects to bucket '%s'" % (args.num_objs, bname)
     d1 = datetime.datetime.now()
     for n in xrange(args.num_objs):
-        k.key = 'obj%s' % ("%s+%s" % (n, time.time()))
+        objname = 'obj%s' % ("%s+%s" % (n, time.time()))
+        if args.objnamelen > len(objname):
+            delta = args.objnamelen - len(objname)
+            ext = ""
+            for i in xrange(0,delta):
+                ext+=random.choice(string.letters)
+        k.key = objname+ext
         fname = '/tmp/rgwtestdata-%d' % (n)
         k.set_contents_from_filename(fname)
 
@@ -82,7 +92,7 @@ print "\nExisting buckets:",
 all_buckets = conn.get_all_buckets()
 print ', '.join([b.name for b in all_buckets])
 for b in all_buckets:
-    num_objs = len([b.name for b in b.list()])
+    num_objs = len([o.name for o in b.list()])
     print "Bucket '%s' contains %s objects" % (b.name, num_objs)
 
 print "\nDone."

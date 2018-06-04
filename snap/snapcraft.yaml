@@ -1,8 +1,10 @@
 name: s3test
-version: 1.0
+version: 1.1
 summary: Test RadosGW S3 API 
 description: >
-   This package provides s3test
+   This package provides an easy way to upload data to an S3 API provided
+   by a Ceph Rados Gateway. It requires Openstack Keystone for
+   authentication which can easily be deployed using the Openstack Charms.
 confinement: strict
 grade: stable
 
@@ -16,3 +18,7 @@ parts:
     plugin: dump
     source: .
     stage-packages: [python-keystoneclient, python-boto]
+    override-build: |
+     snapcraftctl build
+     rm $SNAPCRAFT_PART_INSTALL/var/lib/ieee-data/mam.txt
+     rm $SNAPCRAFT_PART_INSTALL/var/lib/ieee-data/oui36.txt
