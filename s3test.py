@@ -1,19 +1,18 @@
 #!/usr/bin/env python2
-#
-# S3 API test tool. Can be used to test Ceph Rados Gateway S3 API.
-#
-# Authors:
-#    Edward Hope-Morley <edward.hope-morley@canonical.com>
-#
+"""
+S3 API test tool. Can be used to test Ceph Rados Gateway S3 API.
+
+Authors:
+    Edward Hope-Morley <edward.hope-morley@canonical.com>
+"""
+import datetime
 import os
+import random
+import string
 import time
 
 import argparse
 import boto
-import datetime
-import random
-import string
-
 from boto.s3 import (
     connection,
     key
@@ -62,37 +61,39 @@ conn = boto.connect_s3(
 
 bname = 'testbucket'
 bucket = conn.create_bucket(bname)
-print "Bucket '%s' contains %s objects" % (bname, len(list(bucket.list())))
+print "Bucket '{}' contains {} objects".format(bname, len(list(bucket.list())))
 k = key.Key(bucket)
 
-print "Creating %s %dKB random data files" % (args.num_objs, args.bytes / 1024)
+print "Creating {} {}KB random data files".format(args.num_objs,
+                                                  args.bytes / 1024)
 for n in xrange(args.num_objs):
     fname = '/tmp/rgwtestdata-%d' % (n)
     with open(fname, 'w') as fd:
         fd.write(os.urandom(args.bytes))
 
 if args.num_objs:
-    print "Uploading %d objects to bucket '%s'" % (args.num_objs, bname)
+    print "Uploading {} objects to bucket '{}'".format(args.num_objs, bname)
     d1 = datetime.datetime.now()
     for n in xrange(args.num_objs):
-        objname = 'obj%s' % ("%s+%s" % (n, time.time()))
+        objname = 'obj{}'.format("{}+{}".format(n, time.time()))
+        ext = ""
         if args.objnamelen > len(objname):
             delta = args.objnamelen - len(objname)
-            ext = ""
-            for i in xrange(0,delta):
-                ext+=random.choice(string.letters)
+            for i in xrange(0, delta):
+                ext += random.choice(string.letters)
+
         k.key = objname+ext
-        fname = '/tmp/rgwtestdata-%d' % (n)
+        fname = '/tmp/rgwtestdata-{}'.format(n)
         k.set_contents_from_filename(fname)
 
     d2 = datetime.datetime.now()
-    print "Done. (%s)" % (d2 - d1)
+    print "Done. ({})".format(d2 - d1)
 
 print "\nExisting buckets:",
 all_buckets = conn.get_all_buckets()
 print ', '.join([b.name for b in all_buckets])
 for b in all_buckets:
     num_objs = len([o.name for o in b.list()])
-    print "Bucket '%s' contains %s objects" % (b.name, num_objs)
+    print "Bucket '{}' contains {} objects".format(b.name, num_objs)
 
 print "\nDone."
