@@ -1,9 +1,9 @@
 name: s3test
-version: 1.1
+version: 1.2
 summary: Test RadosGW S3 API 
 description: >
-   This package provides an easy way to upload data to an S3 API provided
-   by a Ceph Rados Gateway. It requires Openstack Keystone for
+   This package provides an easy way to upload random data to an S3 API
+   provided by a Ceph Rados Gateway. It requires Openstack Keystone for
    authentication which can easily be deployed using the Openstack Charms.
 confinement: strict
 grade: stable
