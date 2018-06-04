@@ -3,14 +3,16 @@ version: 1.0
 summary: Test RadosGW S3 API 
 description: >
    This package provides s3test
-confinement: classic
+confinement: strict
 grade: stable
 
 apps:
   s3test:
     command: s3test.py
+    plugs: [network]
 
 parts:
   main:
     plugin: dump
-    source: . 
+    source: .
+    stage-packages: [python-keystoneclient, python-boto]

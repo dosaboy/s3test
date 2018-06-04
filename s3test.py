@@ -45,7 +45,7 @@ parser.add_argument('-n', '--num-objs', type=int, default=1, required=False)
 parser.add_argument('--bytes', type=int, default=1024 * 110, required=False)
 args = parser.parse_args()
 
-print "RadosGW endpoint is '%s:%s'" % (args.host, args.port)
+print "S3 endpoint is '%s:%s'" % (args.host, args.port)
 access_key, secret_key = get_ec2_creds()
 conn = boto.connect_s3(
     aws_access_key_id=access_key,
@@ -82,6 +82,7 @@ print "\nExisting buckets:",
 all_buckets = conn.get_all_buckets()
 print ', '.join([b.name for b in all_buckets])
 for b in all_buckets:
-    print "Bucket '%s' contains %s objects" % (b.name, len([b.name for b in b.list()]))
+    num_objs = len([b.name for b in b.list()])
+    print "Bucket '%s' contains %s objects" % (b.name, num_objs)
 
 print "\nDone."
