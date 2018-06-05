@@ -19,7 +19,7 @@ from boto.s3 import (
 )
 
 
-def get_ec2_creds():
+def get_ec2_creds_v2():
     from keystoneclient.v2_0 import client
 
     print "Fetching EC2 credentials from Keystone"
@@ -34,7 +34,44 @@ def get_ec2_creds():
         c = keystone.ec2.create(u, t)
         c = keystone.ec2.list(u)
 
-    c = c[0]
+    return c[0]
+
+
+def get_ec2_creds_v3():
+    from keystoneauth1.identity import v3
+    from keystoneauth1 import session
+    from keystoneclient.v3 import client
+    admin_url = os.environ['OS_AUTH_URL'].replace('5000', '35357')
+    auth = v3.Password(
+        user_domain_name=os.environ.get('OS_USER_DOMAIN_NAME'),
+        username=os.environ.get('OS_USERNAME'),
+        password=os.environ.get('OS_PASSWORD'),
+        domain_name=os.environ.get('OS_DOMAIN_NAME'),
+        project_domain_name=os.environ.get('OS_PROJECT_DOMAIN_NAME'),
+        project_name=(os.environ.get('OS_PROJECT_NAME') or
+                      os.environ.get('OS_TENANT_NAME')),
+        auth_url=admin_url,
+    )
+    sess = session.Session(auth=auth)
+    ksclient = client.Client(session=sess)
+    ksclient.auth_ref = auth.get_access(sess)
+    t = [t.id for t in ksclient.projects.list() if t.name == 'admin'][0]
+    u = [u.id for u in ksclient.users.list(t) if u.name == 'admin'][0]
+
+    c = ksclient.ec2.list(u)
+    if not c:
+        print "No creds found, creating new ones"
+        ksclient.ec2.create(u, t)
+        c = ksclient.ec2.list(u)
+
+    return c[0]
+
+
+def get_ec2_creds():
+    try:
+        c = get_ec2_creds_v2()
+    except:
+        c = get_ec2_creds_v3()
 
     print "Access: %s Secret: %s" % (c.access, c.secret)
     return c.access, c.secret
@@ -46,6 +83,8 @@ parser.add_argument('--host', type=str, default='10.5.100.1', required=False)
 parser.add_argument('-n', '--num-objs', type=int, default=1, required=False)
 parser.add_argument('--bytes', type=int, default=1024 * 110, required=False)
 parser.add_argument('--objnamelen', type=int, default=0, required=False)
+parser.add_argument('--bucket', type=str, default='testbucket',
+                    required=False)
 args = parser.parse_args()
 
 print "S3 endpoint is '%s:%s'" % (args.host, args.port)
@@ -59,8 +98,14 @@ conn = boto.connect_s3(
     calling_format=connection.OrdinaryCallingFormat(),
 )
 
-bname = 'testbucket'
-bucket = conn.create_bucket(bname)
+bname = args.bucket
+print 'checking bucket {}'.format(bname)
+all_buckets = conn.get_all_buckets()
+if bname in [b.name for b in all_buckets]:
+    bucket = b
+else:
+    bucket = conn.create_bucket(bname)
+
 print "Bucket '{}' contains {} objects".format(bname, len(list(bucket.list())))
 k = key.Key(bucket)
 
