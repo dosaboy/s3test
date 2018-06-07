@@ -42,26 +42,32 @@ def get_ec2_creds_v3():
     from keystoneauth1 import session
     from keystoneclient.v3 import client
     admin_url = os.environ['OS_AUTH_URL'].replace('5000', '35357')
+    project_name = (os.environ.get('OS_PROJECT_NAME') or
+                    os.environ['OS_TENANT_NAME'])
     auth = v3.Password(
         user_domain_name=os.environ.get('OS_USER_DOMAIN_NAME'),
-        username=os.environ.get('OS_USERNAME'),
-        password=os.environ.get('OS_PASSWORD'),
+        username=os.environ['OS_USERNAME'],
+        password=os.environ['OS_PASSWORD'],
         domain_name=os.environ.get('OS_DOMAIN_NAME'),
         project_domain_name=os.environ.get('OS_PROJECT_DOMAIN_NAME'),
-        project_name=(os.environ.get('OS_PROJECT_NAME') or
-                      os.environ.get('OS_TENANT_NAME')),
+        project_name=project_name,
         auth_url=admin_url,
     )
     sess = session.Session(auth=auth)
     ksclient = client.Client(session=sess)
     ksclient.auth_ref = auth.get_access(sess)
-    t = [t.id for t in ksclient.projects.list() if t.name == 'admin'][0]
-    u = [u.id for u in ksclient.users.list(t) if u.name == 'admin'][0]
-
+    domain_name = os.environ.get('OS_PROJECT_DOMAIN_NAME', 'default')
+    d = [d.id for d in ksclient.domains.list() if d.name == domain_name][0]
+    p = [p.id for p in ksclient.projects.list(domain=d)
+         if p.name == project_name][0]
+    u = [u.id for u in ksclient.users.list(project=p, domain=d)
+         if u.name == 'admin'][0]
     c = ksclient.ec2.list(u)
-    if not c:
+    if c:
+        print "Using existing EC2 creds"
+    else:
         print "No creds found, creating new ones"
-        ksclient.ec2.create(u, t)
+        ksclient.ec2.create(u, p)
         c = ksclient.ec2.list(u)
 
     return c[0]
@@ -73,7 +79,7 @@ def get_ec2_creds():
     except:
         c = get_ec2_creds_v3()
 
-    print "Access: %s Secret: %s" % (c.access, c.secret)
+    print "EC2 credentials [access: %s secret: %s]" % (c.access, c.secret)
     return c.access, c.secret
 
 
@@ -87,7 +93,7 @@ parser.add_argument('--bucket', type=str, default='testbucket',
                     required=False)
 args = parser.parse_args()
 
-print "S3 endpoint is '%s:%s'" % (args.host, args.port)
+print "Using S3 endpoint '%s:%s'" % (args.host, args.port)
 access_key, secret_key = get_ec2_creds()
 conn = boto.connect_s3(
     aws_access_key_id=access_key,
@@ -99,18 +105,21 @@ conn = boto.connect_s3(
 )
 
 bname = args.bucket
-print 'checking bucket {}'.format(bname)
 all_buckets = conn.get_all_buckets()
-if bname in [b.name for b in all_buckets]:
-    bucket = b
+bucket = [b for b in all_buckets if b.name == bname]
+if bucket:
+    bucket = bucket[0]
+    num_objs = len(list(bucket.list()))
+    print('Bucket {} already exists and contains {} objects'
+          .format(bucket.name, num_objs))
 else:
+    print 'Creating new bucket {}'.format(bname)
     bucket = conn.create_bucket(bname)
 
-print "Bucket '{}' contains {} objects".format(bname, len(list(bucket.list())))
 k = key.Key(bucket)
 
-print "Creating {} {}KB random data files".format(args.num_objs,
-                                                  args.bytes / 1024)
+print "\nCreating {} {}KB random data files".format(args.num_objs,
+                                                    args.bytes / 1024)
 for n in xrange(args.num_objs):
     fname = '/tmp/rgwtestdata-%d' % (n)
     with open(fname, 'w') as fd:
